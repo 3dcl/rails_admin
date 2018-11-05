@@ -2,7 +2,25 @@
 
 ## [Unreleased](https://github.com/sferik/rails_admin/tree/HEAD)
 
-[Full Changelog](https://github.com/sferik/rails_admin/compare/v1.4.0...HEAD)
+[Full Changelog](https://github.com/sferik/rails_admin/compare/v1.4.2...HEAD)
+
+
+## [1.4.2](https://github.com/sferik/rails_admin/tree/v1.4.2) - 2018-09-23
+
+[Full Changelog](https://github.com/sferik/rails_admin/compare/v1.4.1...v1.4.2)
+
+### Fixed
+- Fix `can't modify frozen Array` error on startup([#3060](https://github.com/sferik/rails_admin/issues/3060))
+- Fix deprecation warning with PaperTrail.whodunnit([#3059](https://github.com/sferik/rails_admin/pull/3059))
+
+
+## [1.4.1](https://github.com/sferik/rails_admin/tree/v1.4.1) - 2018-08-19
+
+[Full Changelog](https://github.com/sferik/rails_admin/compare/v1.4.0...v1.4.1)
+
+### Fixed
+- Export crashes for models with JSON field([#3056](https://github.com/sferik/rails_admin/pull/3056))
+- Middlewares being mangled by engine initializer, causing app's session store configuration to be overwritten([#3048](https://github.com/sferik/rails_admin/issues/3048), [59478af9](https://github.com/sferik/rails_admin/commit/59478af9a05c76bdfe35e94e63c60ba89c27a483))
 
 
 ## [1.4.0](https://github.com/sferik/rails_admin/tree/v1.4.0) - 2018-07-22
