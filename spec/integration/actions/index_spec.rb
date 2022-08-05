@@ -1,4 +1,5 @@
 # coding: utf-8
+# frozen_string_literal: true
 
 require 'spec_helper'
 
@@ -6,7 +7,7 @@ RSpec.describe 'Index action', type: :request do
   subject { page }
 
   describe 'page' do
-    it "shows \"List of Models\", should show filters and should show column headers" do
+    it 'shows "List of Models", should show filters and should show column headers' do
       RailsAdmin.config.default_items_per_page = 1
       2.times { FactoryBot.create :player } # two pages of players
       visit index_path(model_name: 'player')
@@ -22,7 +23,7 @@ RSpec.describe 'Index action', type: :request do
       # it "has the search box with some prompt text" do
       is_expected.to have_selector("input[placeholder='Filter']")
 
-      # https://github.com/sferik/rails_admin/issues/362
+      # https://github.com/railsadminteam/rails_admin/issues/362
       # test that no link uses the "wildcard route" with the main
       # controller and list method
       # it "does not use the 'wildcard route'" do
@@ -74,6 +75,13 @@ RSpec.describe 'Index action', type: :request do
       (1..3).each do |i|
         is_expected.to have_no_content(@players[i].name)
       end
+    end
+
+    it 'allows to clear the search query box', js: true do
+      visit index_path(model_name: 'player', query: @players[0].name)
+      is_expected.not_to have_content(@players[1].name)
+      find_button('Reset filters').click
+      is_expected.to have_content(@players[1].name)
     end
 
     it 'allows to filter on one attribute' do
@@ -282,7 +290,13 @@ RSpec.describe 'Index action', type: :request do
 
     it 'displays base filters when no filters are present in the params' do
       RailsAdmin.config Player do
-        list { filters([:name, :team]) }
+        list { filters(%i[name team]) }
+        field :name do
+          default_filter_operator 'is'
+        end
+        field :team do
+          filterable true
+        end
       end
       visit index_path(model_name: 'player')
 
@@ -293,7 +307,8 @@ RSpec.describe 'Index action', type: :request do
           name: 'name',
           type: 'string',
           value: '',
-          operator: nil,
+          operator: 'is',
+          required: true,
         },
         {
           index: 2,
@@ -302,12 +317,21 @@ RSpec.describe 'Index action', type: :request do
           type: 'belongs_to_association',
           value: '',
           operator: nil,
+          required: false,
         },
       ]
     end
   end
 
-  describe "fields" do
+  describe 'fields' do
+    before do
+      if defined?(CompositePrimaryKeys)
+        RailsAdmin.config Fan do
+          configure(:fanships) { hide }
+          configure(:fanship) { hide }
+        end
+      end
+    end
     it 'shows all by default' do
       visit index_path(model_name: 'fan')
       expect(all('th').collect(&:text).delete_if { |t| /^\n*$/ =~ t }).
@@ -627,13 +651,23 @@ RSpec.describe 'Index action', type: :request do
     end
   end
 
+  context 'when no record exists' do
+    before do
+      visit index_path(model_name: 'player')
+    end
+
+    it 'shows "No records found" message' do
+      is_expected.to have_content('No records found')
+    end
+  end
+
   context 'without pagination' do
     before do
       @players = FactoryBot.create_list(:player, 2)
       visit index_path(model_name: 'player')
     end
 
-    it "shows \"2 results\"" do
+    it 'shows "2 results"' do
       is_expected.to have_content('2 players')
     end
   end
@@ -777,20 +811,6 @@ RSpec.describe 'Index action', type: :request do
 
     before { @players = players.collect { |h| Player.create(h) } }
 
-    it 'is configurable per model' do
-      RailsAdmin.config Player do
-        list do
-          sort_by :created_at
-          sort_reverse true
-          field :name
-        end
-      end
-      visit index_path(model_name: 'player')
-      player_names_by_date.reverse.each_with_index do |name, i|
-        expect(find("tbody tr:nth-child(#{i + 1})")).to have_content(name)
-      end
-    end
-
     it 'has reverse direction by default' do
       RailsAdmin.config Player do
         list do
@@ -804,11 +824,13 @@ RSpec.describe 'Index action', type: :request do
       end
     end
 
-    it 'allows change default direction' do
+    it 'allows change direction by using field configuration' do
       RailsAdmin.config Player do
         list do
           sort_by :created_at
-          sort_reverse false
+          configure :created_at do
+            sort_reverse false
+          end
           field :name
         end
       end
@@ -816,6 +838,13 @@ RSpec.describe 'Index action', type: :request do
       player_names_by_date.each_with_index do |name, i|
         expect(find("tbody tr:nth-child(#{i + 1})")).to have_content(name)
       end
+    end
+
+    it 'can be activated by clicking the table header', js: true do
+      visit index_path(model_name: 'player')
+      find('th.header', text: 'Name').trigger('click')
+      is_expected.to have_css('th.name_field.headerSortDown')
+      expect(all('tbody td.name_field').map(&:text)).to eq @players.map(&:name).sort
     end
   end
 
@@ -880,7 +909,7 @@ RSpec.describe 'Index action', type: :request do
           end
         end
       end
-      visit index_path(model_name: 'player', query: player.name[1..-1])
+      visit index_path(model_name: 'player', query: player.name[1..])
       is_expected.to have_no_content(player.name)
     end
   end
@@ -921,6 +950,48 @@ RSpec.describe 'Index action', type: :request do
     end
   end
 
+  describe 'with model scope' do
+    context 'without default scope' do
+      let!(:teams) { %w[red yellow blue].map { |color| FactoryBot.create :team, color: color } }
+
+      it 'works', active_record: true do
+        RailsAdmin.config do |config|
+          config.model Team do
+            scope { Team.where(color: %w[red blue]) }
+          end
+        end
+        visit index_path(model_name: 'team')
+        expect(all(:css, 'td.color_field').map(&:text)).to match_array %w[red blue]
+      end
+
+      it 'works', mongoid: true do
+        RailsAdmin.config do |config|
+          config.model Team do
+            scope { Team.any_in(color: %w[red blue]) }
+          end
+        end
+        visit index_path(model_name: 'team')
+        expect(all(:css, 'td.color_field').map(&:text)).to match_array %w[red blue]
+      end
+    end
+
+    context 'with default_scope' do
+      let!(:comments) { %w[something anything].map { |content| FactoryBot.create :comment_confirmed, content: content } }
+      before do
+        RailsAdmin.config do |config|
+          config.model Comment::Confirmed do
+            scope { Comment::Confirmed.unscoped }
+          end
+        end
+      end
+
+      it 'can be overriden' do
+        visit index_path(model_name: 'comment~confirmed')
+        expect(all(:css, 'td.content_field').map(&:text)).to match_array %w[something anything]
+      end
+    end
+  end
+
   describe 'with scopes' do
     before do
       RailsAdmin.config do |config|
@@ -944,7 +1015,7 @@ RSpec.describe 'Index action', type: :request do
       expect(find('#scope_selector li:nth-child(2)')).to have_content('Red')
       expect(find('#scope_selector li:nth-child(3)')).to have_content('White')
       expect(find('#scope_selector li:last')).to have_content('White')
-      expect(find('#scope_selector li.active')).to have_content('All')
+      expect(find('#scope_selector li a.active')).to have_content('All')
     end
 
     it 'shows only scoped records' do
@@ -955,14 +1026,14 @@ RSpec.describe 'Index action', type: :request do
       is_expected.to have_content(@teams[3].name)
 
       visit index_path(model_name: 'team', scope: 'red')
-      expect(find('#scope_selector li.active')).to have_content('Red')
+      expect(find('#scope_selector li a.active')).to have_content('Red')
       is_expected.to have_content(@teams[0].name)
       is_expected.to have_content(@teams[1].name)
       is_expected.to have_no_content(@teams[2].name)
       is_expected.to have_no_content(@teams[3].name)
 
       visit index_path(model_name: 'team', scope: 'white')
-      expect(find('#scope_selector li.active')).to have_content('White')
+      expect(find('#scope_selector li a.active')).to have_content('White')
       is_expected.to have_no_content(@teams[0].name)
       is_expected.to have_no_content(@teams[1].name)
       is_expected.to have_content(@teams[2].name)
@@ -994,7 +1065,7 @@ RSpec.describe 'Index action', type: :request do
           expect(find('#scope_selector li:nth-child(2)')).to have_content('krasnyj')
           expect(find('#scope_selector li:nth-child(3)')).to have_content('White')
           expect(find('#scope_selector li:last')).to have_content('White')
-          expect(find('#scope_selector li.active')).to have_content('every')
+          expect(find('#scope_selector li a.active')).to have_content('every')
         end
       end
 
@@ -1014,7 +1085,7 @@ RSpec.describe 'Index action', type: :request do
           expect(find('#scope_selector li:nth-child(2)')).to have_content('kr')
           expect(find('#scope_selector li:nth-child(3)')).to have_content('White')
           expect(find('#scope_selector li:last')).to have_content('White')
-          expect(find('#scope_selector li.active')).to have_content('any')
+          expect(find('#scope_selector li a.active')).to have_content('any')
         end
       end
     end
@@ -1084,36 +1155,33 @@ RSpec.describe 'Index action', type: :request do
   end
 
   describe 'sidescroll' do
-    all_team_columns = ['', '', 'Id', 'Created at', 'Updated at', 'Division', 'Name', 'Logo url', 'Team Manager', 'Ballpark', 'Mascot', 'Founded', 'Wins', 'Losses', 'Win percentage', 'Revenue', 'Color', 'Custom field', 'Main Sponsor', 'Players', 'Some Fans', 'Comments']
+    all_team_columns = ['', 'Id', 'Created at', 'Updated at', 'Division', 'Name', 'Logo url', 'Team Manager', 'Ballpark', 'Mascot', 'Founded', 'Wins', 'Losses', 'Win percentage', 'Revenue', 'Color', 'Custom field', 'Main Sponsor', 'Players', 'Some Fans', 'Comments', '']
 
-    it "displays all fields on one page when true" do
-      RailsAdmin.config do |config|
-        config.sidescroll = true
-      end
+    it 'displays all fields on one page' do
       FactoryBot.create_list :team, 3
       visit index_path(model_name: 'team')
       cols = all('th').collect(&:text)
       expect(cols[0..4]).to eq(all_team_columns[0..4])
       expect(cols).to contain_exactly(*all_team_columns)
-      expect(page).to have_selector('.ra-sidescroll[data-ra-sidescroll=3]')
     end
 
-    it "displays all fields with custom frozen columns" do
-      RailsAdmin.config do |config|
-        config.sidescroll = {num_frozen_columns: 2}
+    it 'allows fields to be sticky' do
+      RailsAdmin.config Team do
+        list do
+          configure(:division) { sticky true }
+          configure(:name) { sticky true }
+        end
       end
       FactoryBot.create_list :team, 3
       visit index_path(model_name: 'team')
       cols = all('th').collect(&:text)
-      expect(cols[0..4]).to eq(all_team_columns[0..4])
+      expect(cols[0..4]).to eq(['', 'Division', 'Name', 'Id', 'Created at'])
       expect(cols).to contain_exactly(*all_team_columns)
-      expect(page).to have_selector('.ra-sidescroll[data-ra-sidescroll=2]')
+      expect(page).to have_selector('.name_field.sticky')
+      expect(page).to have_selector('.division_field.sticky')
     end
 
-    it "displays all fields with no checkboxes" do
-      RailsAdmin.config do |config|
-        config.sidescroll = true
-      end
+    it 'displays all fields with no checkboxes' do
       RailsAdmin.config Team do
         list do
           checkboxes false
@@ -1123,92 +1191,21 @@ RSpec.describe 'Index action', type: :request do
       visit index_path(model_name: 'team')
       cols = all('th').collect(&:text)
       expect(cols[0..3]).to eq(all_team_columns[1..4])
-      expect(cols).to contain_exactly(*all_team_columns[1..-1])
-      expect(page).to have_selector('.ra-sidescroll[data-ra-sidescroll=2]')
+      expect(cols).to contain_exactly(*all_team_columns[1..])
     end
+  end
 
-    it "displays all fields with no frozen columns" do
-      RailsAdmin.config do |config|
-        config.sidescroll = {num_frozen_columns: 0}
-      end
-      FactoryBot.create_list :team, 3
-      visit index_path(model_name: 'team')
-      cols = all('th').collect(&:text)
-      expect(cols[0..4]).to eq(all_team_columns[0..4])
-      expect(cols).to contain_exactly(*all_team_columns)
-      expect(page).to have_selector('.ra-sidescroll[data-ra-sidescroll=0]')
-    end
+  context 'with composite_primary_keys', composite_primary_keys: true do
+    let!(:fanships) { FactoryBot.create_list(:fanship, 3) }
 
-    it "displays sets when not set" do
-      visit index_path(model_name: 'team')
-      expect(all('th').collect(&:text)).to eq ['', 'Id', 'Created at', 'Updated at', 'Division', 'Name', 'Logo url', '...', '']
-      expect(page).not_to have_selector('.ra-sidescroll')
-    end
-
-    it "displays sets when global config is on but model config is off" do
-      RailsAdmin.config do |config|
-        config.sidescroll = true
+    it 'shows the list' do
+      visit index_path(model_name: 'fanship')
+      expect(all('th').collect(&:text)[0..3]).to eq(['', 'Fan', 'Team', 'Since'])
+      fanships.each do |fanship|
+        is_expected.to have_content fanship.fan.name
+        is_expected.to have_content fanship.team.name
       end
-      RailsAdmin.config Team do
-        list do
-          sidescroll false
-        end
-      end
-      visit index_path(model_name: 'team')
-      expect(all('th').collect(&:text)).to eq ['', 'Id', 'Created at', 'Updated at', 'Division', 'Name', 'Logo url', '...', '']
-      expect(page).not_to have_selector('.ra-sidescroll')
-    end
-
-    it "displays all fields when global config is off but model config is on" do
-      RailsAdmin.config Team do
-        list do
-          sidescroll true
-        end
-      end
-      FactoryBot.create_list :team, 3
-      visit index_path(model_name: 'team')
-      cols = all('th').collect(&:text)
-      expect(cols[0..4]).to eq(all_team_columns[0..4])
-      expect(cols).to contain_exactly(*all_team_columns)
-      expect(page).to have_selector('.ra-sidescroll[data-ra-sidescroll=3]')
-    end
-
-    it "displays all fields with custom model config settings" do
-      RailsAdmin.config do |config|
-        config.sidescroll = true
-      end
-      RailsAdmin.config Team do
-        list do
-          sidescroll(num_frozen_columns: 2)
-        end
-      end
-      FactoryBot.create_list :team, 3
-      FactoryBot.create_list :player, 3
-      visit index_path(model_name: 'team')
-      cols = all('th').collect(&:text)
-      expect(cols[0..4]).to eq(all_team_columns[0..4])
-      expect(cols).to contain_exactly(*all_team_columns)
-      expect(page).to have_selector('.ra-sidescroll[data-ra-sidescroll=2]')
-      visit index_path(model_name: 'player')
-      expect(page).to have_selector('.ra-sidescroll[data-ra-sidescroll=3]')
-    end
-
-    it "displays all fields with model config checkbox settings" do
-      RailsAdmin.config do |config|
-        config.sidescroll = true
-      end
-      RailsAdmin.config Team do
-        list do
-          sidescroll(num_frozen_columns: 3)
-          checkboxes false
-        end
-      end
-      FactoryBot.create_list :team, 3
-      visit index_path(model_name: 'team')
-      cols = all('th').collect(&:text)
-      expect(cols[0..3]).to eq(all_team_columns[1..4])
-      expect(cols).to contain_exactly(*all_team_columns[1..-1])
-      expect(page).to have_selector('.ra-sidescroll[data-ra-sidescroll=3]')
+      is_expected.to have_content '3 fanships'
     end
   end
 end
