@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_admin/config/fields/types/text'
 
 module RailsAdmin
@@ -15,6 +17,10 @@ module RailsAdmin
 
           register_instance_option :pretty_value do
             bindings[:view].content_tag(:pre) { formatted_value }.html_safe
+          end
+
+          register_instance_option :export_value do
+            formatted_value
           end
 
           def parse_value(value)

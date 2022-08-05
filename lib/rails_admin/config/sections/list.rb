@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_admin/config/sections/base'
 
 module RailsAdmin
@@ -24,12 +26,12 @@ module RailsAdmin
           false
         end
 
-        register_instance_option :sort_by do
-          parent.abstract_model.primary_key
+        register_instance_option :search_by do
+          nil
         end
 
-        register_instance_option :sort_reverse? do
-          true # By default show latest first
+        register_instance_option :sort_by do
+          parent.abstract_model.primary_key
         end
 
         register_instance_option :scopes do
@@ -38,6 +40,18 @@ module RailsAdmin
 
         register_instance_option :row_css_class do
           ''
+        end
+
+        register_deprecated_instance_option :sidescroll do
+          ActiveSupport::Deprecation.warn('The sidescroll configuration option was removed, it is always enabled now.')
+        end
+
+        def fields_for_table
+          visible_fields.partition(&:sticky?).flatten
+        end
+
+        register_deprecated_instance_option :sort_reverse do
+          ActiveSupport::Deprecation.warn('The sort_reverse configuration option is deprecated and has no effect.')
         end
       end
     end

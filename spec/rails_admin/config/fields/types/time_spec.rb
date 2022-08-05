@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
-describe RailsAdmin::Config::Fields::Types::Time do
+RSpec.describe RailsAdmin::Config::Fields::Types::Time, active_record: true do
   it_behaves_like 'a generic field type', :time_field, :time
 
   describe '#parse_input' do
@@ -17,8 +19,8 @@ describe RailsAdmin::Config::Fields::Types::Time do
     end
 
     before :each do
-      @object = FactoryGirl.create(:field_test)
-      @time = ::Time.now.getutc
+      @object = FactoryBot.create(:field_test)
+      @time = ::Time.new(2000, 1, 1, 3, 45)
     end
 
     after :each do
@@ -30,10 +32,10 @@ describe RailsAdmin::Config::Fields::Types::Time do
       expect(@object.time_field.strftime('%H:%M')).to eq(@time.strftime('%H:%M'))
     end
 
-    it 'interprets time value as UTC when timezone is specified' do
+    it 'interprets time value as local time when timezone is specified' do
       Time.zone = 'Eastern Time (US & Canada)' # -05:00
-      @object.time_field = field.parse_input(time_field: @time.strftime('%H:%M'))
-      expect(@object.time_field.utc.strftime('%H:%M')).to eq(@time.strftime('%H:%M'))
+      @object.time_field = field.parse_input(time_field: '2000-01-01T03:45:00')
+      expect(@object.time_field.strftime('%H:%M')).to eq('03:45')
     end
 
     context 'with a custom strftime_format' do

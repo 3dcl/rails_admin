@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
-describe RailsAdmin::Config::Fields::Types::BsonObjectId do
+RSpec.describe RailsAdmin::Config::Fields::Types::BsonObjectId do
   it_behaves_like 'a generic field type', :string_field, :bson_object_id
 
   describe '#parse_value' do

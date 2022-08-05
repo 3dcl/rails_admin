@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
-describe RailsAdmin::Config::Fields::Types::Uuid do
+RSpec.describe RailsAdmin::Config::Fields::Types::Uuid do
   let(:uuid) { SecureRandom.uuid }
-  let(:object) { FactoryGirl.create(:field_test) }
+  let(:object) { FactoryBot.create(:field_test) }
   let(:field) { RailsAdmin.config(FieldTest).fields.detect { |f| f.name == :uuid_field } }
 
   before do

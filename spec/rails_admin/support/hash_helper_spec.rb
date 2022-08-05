@@ -1,8 +1,9 @@
 # encoding: utf-8
+# frozen_string_literal: true
 
 require 'spec_helper'
 
-describe RailsAdmin::HashHelper do
+RSpec.describe RailsAdmin::HashHelper do
   let(:hash) do
     {
       'subject' => 'Test',
@@ -21,13 +22,13 @@ describe RailsAdmin::HashHelper do
     let(:symbolized_hash) { RailsAdmin::HashHelper.symbolize(hash) }
 
     it 'symbolizes top-level hash keys' do
-      [:subject, :user].each do |key|
+      %i[subject user].each do |key|
         expect(symbolized_hash.keys).to include(key)
       end
     end
 
     it 'symbolizes nested hashes' do
-      [:name, :title, :clients].each do |key|
+      %i[name title clients].each do |key|
         expect(symbolized_hash[:user].keys).to include(key)
       end
     end

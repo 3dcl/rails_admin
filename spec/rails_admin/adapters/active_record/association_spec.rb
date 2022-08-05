@@ -1,38 +1,41 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'timecop'
 
-describe 'RailsAdmin::Adapters::ActiveRecord::Association', active_record: true do
+RSpec.describe 'RailsAdmin::Adapters::ActiveRecord::Association', active_record: true do
   before :all do
     RailsAdmin::AbstractModel.reset_polymorphic_parents
 
-    class ARBlog < ActiveRecord::Base
+    class ARBlog < Tableless
       has_many :a_r_posts
       has_many :a_r_comments, as: :commentable
       belongs_to :librarian, polymorphic: true
     end
 
-    class ARPost < ActiveRecord::Base
+    class ARPost < Tableless
       belongs_to :a_r_blog
       has_and_belongs_to_many :a_r_categories
       has_many :a_r_comments, as: :commentable
     end
 
-    class ARCategory < ActiveRecord::Base
-      has_and_belongs_to_many :a_r_posts
+    class ARCategory < Tableless
+      has_and_belongs_to_many :a_r_posts, -> { readonly }
+      has_and_belongs_to_many :scoped_posts, ->(category) { where(id: category.id) }, class_name: 'ARPost'
       belongs_to :librarian, polymorphic: true
     end
 
-    class ARUser < ActiveRecord::Base
+    class ARUser < Tableless
       has_one :a_r_profile
       has_many :a_r_categories, as: :librarian
     end
 
-    class ARProfile < ActiveRecord::Base
+    class ARProfile < Tableless
       belongs_to :a_r_user
       has_many :a_r_blogs, as: :librarian
     end
 
-    class ARComment < ActiveRecord::Base
+    class ARComment < Tableless
       belongs_to :commentable, polymorphic: true
     end
 
@@ -49,12 +52,12 @@ describe 'RailsAdmin::Adapters::ActiveRecord::Association', active_record: true 
   end
 
   it 'lists associations' do
-    expect(@post.associations.collect { |a| a.name.to_s }).to include(*%w(a_r_blog a_r_categories a_r_comments))
+    expect(@post.associations.collect { |a| a.name.to_s }).to include(*%w[a_r_blog a_r_categories a_r_comments])
   end
 
   it 'list associations types in supported [:belongs_to, :has_and_belongs_to_many, :has_many, :has_one]' do
     # ActiveRecord 4.1 converts has_and_belongs_to_many association to has_many
-    expect((@post.associations + @blog.associations + @user.associations).collect(&:type).uniq.collect(&:to_s)).to include(*%w(belongs_to has_many has_one))
+    expect((@post.associations + @blog.associations + @user.associations).collect(&:type).uniq.collect(&:to_s)).to include(*%w[belongs_to has_many has_one])
   end
 
   describe 'belongs_to association' do
@@ -67,6 +70,7 @@ describe 'RailsAdmin::Adapters::ActiveRecord::Association', active_record: true 
       expect(subject.primary_key).to eq :id
       expect(subject.foreign_key).to eq :a_r_blog_id
       expect(subject.foreign_type).to be_nil
+      expect(subject.key_accessor).to eq :a_r_blog_id
       expect(subject.as).to be_nil
       expect(subject.polymorphic?).to be_falsey
       expect(subject.inverse_of).to be_nil
@@ -85,6 +89,7 @@ describe 'RailsAdmin::Adapters::ActiveRecord::Association', active_record: true 
       expect(subject.primary_key).to eq :id
       expect(subject.foreign_key).to eq :ar_blog_id
       expect(subject.foreign_type).to be_nil
+      expect(subject.key_accessor).to eq :a_r_post_ids
       expect(subject.as).to be_nil
       expect(subject.polymorphic?).to be_falsey
       expect(subject.inverse_of).to be_nil
@@ -162,16 +167,33 @@ describe 'RailsAdmin::Adapters::ActiveRecord::Association', active_record: true 
       expect(subject.primary_key).to eq :id
       expect(subject.foreign_type).to be_nil
       expect(subject.foreign_key_nullable?).to be_truthy
+      expect(subject.key_accessor).to eq :a_r_category_ids
       expect(subject.as).to be_nil
       expect(subject.polymorphic?).to be_falsey
       expect(subject.inverse_of).to be_nil
       expect(subject.read_only?).to be_falsey
       expect(subject.nested_options).to be_nil
     end
+
+    context 'with a scope given' do
+      subject { @category.associations.detect { |a| a.name == :a_r_posts } }
+
+      it 'does not break' do
+        expect(subject.read_only?).to be_truthy
+      end
+    end
+
+    context 'with a scope that receives an argument given' do
+      subject { @category.associations.detect { |a| a.name == :scoped_posts } }
+
+      it 'ignores the scope' do
+        expect(subject.read_only?).to be_falsey
+      end
+    end
   end
 
   describe 'polymorphic belongs_to association' do
-    before { allow(RailsAdmin::Config).to receive(:models_pool).and_return(%w(ARBlog ARPost ARCategory ARUser ARProfile ARComment)) }
+    before { allow(RailsAdmin::Config).to receive(:models_pool).and_return(%w[ARBlog ARPost ARCategory ARUser ARProfile ARComment]) }
     subject { @comment.associations.detect { |a| a.name == :commentable } }
 
     it 'returns correct values' do
@@ -181,6 +203,7 @@ describe 'RailsAdmin::Adapters::ActiveRecord::Association', active_record: true 
       expect(subject.primary_key).to be_nil
       expect(subject.foreign_key).to eq :commentable_id
       expect(subject.foreign_type).to eq :commentable_type
+      expect(subject.key_accessor).to eq :commentable_id
       expect(subject.as).to be_nil
       expect(subject.polymorphic?).to be_truthy
       expect(subject.inverse_of).to be_nil
@@ -204,6 +227,7 @@ describe 'RailsAdmin::Adapters::ActiveRecord::Association', active_record: true 
       expect(subject.primary_key).to eq :id
       expect(subject.foreign_key).to eq :commentable_id
       expect(subject.foreign_type).to be_nil
+      expect(subject.key_accessor).to eq :a_r_comment_ids
       expect(subject.as).to eq :commentable
       expect(subject.polymorphic?).to be_falsey
       expect(subject.inverse_of).to be_nil
