@@ -3,6 +3,8 @@
 require 'spec_helper'
 
 RSpec.describe 'Datetimepicker widget', type: :request, js: true do
+  subject { page }
+
   before do
     RailsAdmin.config FieldTest do
       edit do
@@ -19,6 +21,7 @@ RSpec.describe 'Datetimepicker widget', type: :request, js: true do
 
   it 'populates the value selected by the Datetime picker into the hidden_field' do
     visit new_path(model_name: 'field_test')
+    is_expected.to have_css '.form-control.flatpickr-input', visible: false
     page.execute_script <<-JS
       document.querySelector('#field_test_datetime_field')._flatpickr.setDate('2015-10-08 14:00:00');
     JS
@@ -52,6 +55,7 @@ RSpec.describe 'Datetimepicker widget', type: :request, js: true do
       end
     end
     visit new_path(model_name: 'field_test')
+    is_expected.to have_css '.form-control.flatpickr-input', visible: false
     page.execute_script <<-JS
       document.querySelector('#field_test_datetime_field')._flatpickr.setDate('2015-10-08 12:34:56');
     JS
