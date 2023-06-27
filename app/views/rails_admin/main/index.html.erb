@@ -26,26 +26,11 @@
       </a>
       <ul class="dropdown-menu dropdown-menu-end" id="filters">
         <% filterable_fields.each do |field| %>
-          <%
-            field_options = case field.type
-                            when :enum
-                              options_for_select(field.with(object: @abstract_model.model.new).enum)
-                            else
-                              ''
-                            end
-          %>
           <li>
             <a
               href="#"
               class="dropdown-item"
-              data-field-label="<%= field.label %>"
-              data-field-name="<%= field.name %>"
-              data-field-operator="<%= field.default_filter_operator %>"
-              data-field-options="<%= "#{field_options}" %>"
-              data-field-required="<%= field.required.to_s %>"
-              data-field-type="<%= field.type %>"
-              data-field-value=""
-              data-field-datetimepicker-options="<%= field.try(:datepicker_options).try(:to_json) %>"
+              data-options="<%= field.with(view: self).filter_options.to_json %>"
             >
               <%= field.label %>
             </a>
@@ -83,6 +68,9 @@
               <i class="fas fa-times"></i>
             </button>
           </div>
+          <% if @model_config.list.search_help.present? %>
+            <div class="form-text"><%= @model_config.list.search_help %></div>
+          <% end %>
         </div>
         <div class="col-sm-6 text-end">
           <% if export_action %>
@@ -135,7 +123,7 @@
             <th class="last shrink"></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="table-group-divider">
           <% @objects.each do |object| %>
             <tr class="<%= @abstract_model.param_key %>_row <%= @model_config.list.with(object: object).row_css_class %>">
               <% if checkboxes %>
@@ -150,7 +138,7 @@
                 </td>
               <% end %>
               <td class="last links ra-sidescroll-frozen">
-                <ul class="inline list-inline">
+                <ul class="nav d-inline list-inline">
                   <%= menu_for :member, @abstract_model, object, true %>
                 </ul>
               </td>

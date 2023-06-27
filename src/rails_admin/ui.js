@@ -7,9 +7,33 @@ import I18n from "./i18n";
     $("#list [name='bulk_ids[]']").prop("checked", $(this).is(":checked"));
   });
 
-  $(document).on("turbo:click", function () {
-    return $("#loading").show();
-  });
+  $(document)
+    .on("turbo:click", function () {
+      $("#loading").show();
+    })
+    .on("turbo:before-render", function (event) {
+      document
+        .querySelectorAll('.sidebar .btn-toggle[aria-expanded="false"]')
+        .forEach((element) => {
+          const newButton = event.detail.newBody.querySelector(
+            `.sidebar [data-bs-target="${element.dataset.bsTarget}"]`
+          );
+          const newMenu = event.detail.newBody.querySelector(
+            element.dataset.bsTarget
+          );
+          if (newButton) {
+            newButton.parentNode.replaceChild(
+              element.cloneNode(true),
+              newButton
+            );
+          }
+          if (newMenu) {
+            newMenu.classList.remove("show");
+          }
+        });
+
+      $("#loading").hide();
+    });
 
   $(document).on("click", "[data-bs-target]", function () {
     if (!$(this).hasClass("disabled")) {
@@ -55,14 +79,16 @@ import I18n from "./i18n";
     }
   );
 
-  document.addEventListener("turbo:load", function () {
+  function triggerDomReady() {
     I18n.init($("html").attr("lang"), $("#admin-js").data("i18nOptions"));
 
     const event = new CustomEvent("rails_admin.dom_ready");
     document.dispatchEvent(event);
-  });
+  }
+  $(document).ready(triggerDomReady);
+  document.addEventListener("turbo:render", triggerDomReady);
 
-  document.addEventListener("rails_admin.dom_ready", function () {
+  document.addEventListener("rails_admin.dom_ready", function (event) {
     $(".nav.nav-pills li.active").removeClass("active");
     $(
       '.nav.nav-pills li[data-model="' + $(".page-header").data("model") + '"]'
@@ -103,6 +129,12 @@ import I18n from "./i18n";
     $("a[data-method]").on("click", function (event) {
       window.Turbo.session.drive = false;
     });
+
+    // Trigger via jQuery for compatibility with existing user codes
+    $(document).trigger(
+      "rails_admin.dom_ready",
+      event.detail ? [event.detail] : null
+    );
   });
 
   $(document).on("click", ".bulk-link", function (event) {

@@ -75,6 +75,27 @@ RSpec.describe RailsAdmin, type: :request do
     end
   end
 
+  describe 'sidebar navigation', js: true do
+    it 'is collapsible' do
+      visit dashboard_path
+      is_expected.to have_css('.sidebar .nav-link', text: 'Players')
+      click_button 'Navigation'
+      is_expected.to have_css('.sidebar .btn-toggle.collapsed')
+      is_expected.not_to have_css('.sidebar #navigation.show')
+      is_expected.not_to have_css('.sidebar .nav-link', text: 'Players')
+    end
+
+    it 'persists over a page transition' do
+      visit dashboard_path
+      click_button 'Navigation'
+      is_expected.to have_css('.sidebar .btn-toggle.collapsed')
+      is_expected.not_to have_css('.sidebar #navigation.show')
+      find('.player_links .show a').trigger('click')
+      is_expected.to have_content 'List of Players'
+      is_expected.not_to have_css('.sidebar .nav-link', text: 'Players')
+    end
+  end
+
   describe '_current_user' do # https://github.com/railsadminteam/rails_admin/issues/549
     it 'is accessible from the list view' do
       RailsAdmin.config Player do
@@ -174,6 +195,21 @@ RSpec.describe RailsAdmin, type: :request do
       click_link 'Show in app'
       click_link 'Back to admin'
       is_expected.to have_content 'Details for Player'
+    end
+
+    it 'triggers rails_admin.dom_ready right after a validation error' do
+      visit edit_path(model_name: 'player', id: player.id)
+      fill_in 'player[name]', with: 'on steroids'
+      find_button('Save').trigger 'click'
+      is_expected.to have_content 'Player failed to be updated'
+      is_expected.to have_css '.filtering-select[data-input-for="player_team_id"]'
+    end
+  end
+
+  describe 'dom_ready events', js: true do
+    it 'trigger properly' do
+      visit dashboard_path
+      expect(evaluate_script('domReadyTriggered')).to match_array %w[plainjs/dot jquery/dot]
     end
   end
 

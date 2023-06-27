@@ -1,4 +1,3 @@
-# encoding: utf-8
 # frozen_string_literal: true
 
 require 'spec_helper'
@@ -8,6 +7,10 @@ RSpec.describe RailsAdmin::MainController, type: :controller do
 
   def get(action, params)
     super action, params: params
+  end
+
+  before do
+    controller.instance_variable_set :@action, RailsAdmin::Config::Actions.find(:index)
   end
 
   describe '#check_for_cancel' do
@@ -265,6 +268,24 @@ RSpec.describe RailsAdmin::MainController, type: :controller do
       end
       expect(abstract_model).to receive(:all).with(hash_including(include: [{players: :draft}]), nil).once.and_call_original
       controller.send(:get_collection, model_config, nil, false).to_a
+    end
+
+    context 'on export' do
+      before do
+        controller.instance_variable_set :@action, RailsAdmin::Config::Actions.find(:export)
+      end
+
+      it 'uses the export section' do
+        RailsAdmin.config Team do
+          export do
+            field :players do
+              eager_load true
+            end
+          end
+        end
+        expect(abstract_model).to receive(:all).with(hash_including(include: [:players]), nil).once.and_call_original
+        controller.send(:get_collection, model_config, nil, false).to_a
+      end
     end
   end
 

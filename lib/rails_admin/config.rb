@@ -119,7 +119,7 @@ module RailsAdmin
           klass = RailsAdmin::AUDITING_ADAPTERS[extension]
           klass.setup if klass.respond_to? :setup
           @audit = proc do
-            @auditing_adapter = klass.new(*([self] + args).compact)
+            @auditing_adapter = klass.new(*([self] + args).compact, &block)
           end
         elsif block
           @audit = block
@@ -156,7 +156,7 @@ module RailsAdmin
           klass = RailsAdmin::AUTHORIZATION_ADAPTERS[extension]
           klass.setup if klass.respond_to? :setup
           @authorize = proc do
-            @authorization_adapter = klass.new(*([self] + args).compact)
+            @authorization_adapter = klass.new(*([self] + args).compact, &block)
           end
         elsif block
           @authorize = block
@@ -270,10 +270,12 @@ module RailsAdmin
         @parent_controller = name
 
         if defined?(RailsAdmin::ApplicationController) || defined?(RailsAdmin::MainController)
-          RailsAdmin.send(:remove_const, :ApplicationController)
-          RailsAdmin.send(:remove_const, :MainController)
-          load RailsAdmin::Engine.root.join('app/controllers/rails_admin/application_controller.rb')
-          load RailsAdmin::Engine.root.join('app/controllers/rails_admin/main_controller.rb')
+          RailsAdmin::Config::ConstLoadSuppressor.allowing do
+            RailsAdmin.send(:remove_const, :ApplicationController)
+            RailsAdmin.send(:remove_const, :MainController)
+            load RailsAdmin::Engine.root.join('app/controllers/rails_admin/application_controller.rb')
+            load RailsAdmin::Engine.root.join('app/controllers/rails_admin/main_controller.rb')
+          end
         end
       end
 
@@ -362,23 +364,22 @@ module RailsAdmin
 
     private
 
-      def lchomp(base, arg)
-        base.to_s.reverse.chomp(arg.to_s.reverse).reverse
-      end
-
       def viable_models
         included_models.collect(&:to_s).presence || begin
           @@system_models ||= # memoization for tests
             ([Rails.application] + Rails::Engine.subclasses.collect(&:instance)).flat_map do |app|
               (app.paths['app/models'].to_a + app.config.eager_load_paths).collect do |load_path|
                 Dir.glob(app.root.join(load_path)).collect do |load_dir|
+                  path_prefix = "#{app.root.join(load_dir)}/"
                   Dir.glob("#{load_dir}/**/*.rb").collect do |filename|
                     # app/models/module/class.rb => module/class.rb => module/class => Module::Class
-                    lchomp(filename, "#{app.root.join(load_dir)}/").chomp('.rb').camelize
+                    filename.delete_prefix(path_prefix).chomp('.rb').camelize
                   end
                 end
               end
             end.flatten.reject { |m| m.starts_with?('Concerns::') } # rubocop:disable Style/MultilineBlockChain
+
+          @@system_models + @registry.keys.collect(&:to_s)
         end
       end
 

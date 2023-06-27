@@ -86,7 +86,7 @@ module RailsAdmin
 
         label = navigation_label || t('admin.misc.navigation')
 
-        %(<li class='dropdown-header'>#{label}</li>#{li_stack}) if li_stack.present?
+        collapsible_stack(label, 'main', li_stack)
       end.join.html_safe
     end
 
@@ -101,18 +101,17 @@ module RailsAdmin
         end.join.html_safe
         label ||= t('admin.misc.root_navigation')
 
-        %(<li class='dropdown-header'>#{label}</li>#{li_stack}) if li_stack.present?
+        collapsible_stack(label, 'action', li_stack)
       end.join.html_safe
     end
 
     def static_navigation
       li_stack = RailsAdmin::Config.navigation_static_links.collect do |title, url|
         content_tag(:li, link_to(title.to_s, url, target: '_blank', rel: 'noopener noreferrer', class: 'nav-link'))
-      end.join
+      end.join.html_safe
 
       label = RailsAdmin::Config.navigation_static_label || t('admin.misc.navigation_static_label')
-      li_stack = %(<li class='dropdown-header'>#{label}</li>#{li_stack}).html_safe if li_stack.present?
-      li_stack
+      collapsible_stack(label, 'static', li_stack) || ''
     end
 
     def navigation(parent_groups, nodes, level = 0)
@@ -123,7 +122,7 @@ module RailsAdmin
         nav_icon = node.navigation_icon ? %(<i class="#{node.navigation_icon}"></i>).html_safe : ''
         css_classes = ['nav-link']
         css_classes.push("nav-level-#{level}") if level > 0
-        css_classes.push('active') if defined?(@action) && current_action?(@action, model_param)
+        css_classes.push('active') if @action && current_action?(@action, model_param)
         li = content_tag :li, data: {model: model_param} do
           link_to nav_icon + " " + node.label_plural, url, class: css_classes.join(' ')
         end
@@ -218,6 +217,15 @@ module RailsAdmin
       raise e
     end
 
+    # Workaround for https://github.com/rails/rails/issues/31325
+    def image_tag(source, options = {})
+      if %w[ActiveStorage::Variant ActiveStorage::VariantWithRecord ActiveStorage::Preview].include? source.class.to_s
+        super main_app.route_for(ActiveStorage.resolve_model_to_route, source), options
+      else
+        super
+      end
+    end
+
   private
 
     def edit_user_link_label
@@ -231,6 +239,22 @@ module RailsAdmin
 
     def gravatar_url(email)
       "https://secure.gravatar.com/avatar/#{Digest::MD5.hexdigest email}?s=30"
+    end
+
+    def collapsible_stack(label, class_prefix, li_stack)
+      return nil unless li_stack.present?
+
+      collapse_classname = "#{class_prefix}-#{Digest::MD5.hexdigest(label)[0..7]}"
+      content_tag(:li, class: 'mb-1') do
+        content_tag(:button, 'aria-expanded': true, class: 'btn btn-toggle align-items-center rounded', data: {bs_toggle: "collapse", bs_target: ".sidebar .#{collapse_classname}"}) do
+          content_tag(:i, '', class: 'fas fa-chevron-down') + html_escape(' ' + label)
+        end +
+          content_tag(:div, class: "collapse show #{collapse_classname}") do
+            content_tag(:ul, class: 'btn-toggle-nav list-unstyled fw-normal pb-1') do
+              li_stack
+            end
+          end
+      end
     end
   end
 end

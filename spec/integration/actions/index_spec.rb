@@ -1,4 +1,3 @@
-# coding: utf-8
 # frozen_string_literal: true
 
 require 'spec_helper'
@@ -133,6 +132,22 @@ RSpec.describe 'Index action', type: :request do
       is_expected.to have_content(@players[1].name)
       is_expected.to have_no_content(@players[2].name)
       is_expected.to have_no_content(@players[3].name)
+    end
+
+    it 'allows to filter on has_one relationships' do
+      @draft = FactoryBot.create(:draft, player: @players[1], college: 'University of Alabama')
+      RailsAdmin.config Player do
+        list do
+          field :name
+          field :draft do
+            searchable :college
+          end
+        end
+      end
+
+      visit index_path(model_name: 'player', f: {draft: {'1' => {v: 'Alabama'}}})
+      is_expected.to have_content(@players[1].name)
+      is_expected.to have_css('tbody .name_field', count: 1)
     end
 
     it 'allows to disable search on attributes' do
@@ -308,7 +323,7 @@ RSpec.describe 'Index action', type: :request do
           type: 'string',
           value: '',
           operator: 'is',
-          required: true,
+          operators: %w[_discard like not_like is starts_with ends_with],
         },
         {
           index: 2,
@@ -317,9 +332,19 @@ RSpec.describe 'Index action', type: :request do
           type: 'belongs_to_association',
           value: '',
           operator: nil,
-          required: false,
+          operators: %w[_discard like not_like is starts_with ends_with _separator _present _blank],
         },
       ]
+    end
+
+    it 'shows the help text below the search box' do
+      RailsAdmin.config Player do
+        list do
+          search_help 'Use this box to search!'
+        end
+      end
+      visit index_path(model_name: 'player')
+      is_expected.to have_css('.form-text', text: /Use this box/)
     end
   end
 
