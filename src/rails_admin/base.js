@@ -1,4 +1,4 @@
-import Rails from "@rails/ujs";
+import "@rails/ujs";
 import "@hotwired/turbo-rails";
 import "./jquery";
 import "./vendor/jquery_nested_form";
