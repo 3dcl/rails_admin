@@ -2,8 +2,10 @@
 
 appraise 'rails-6.0' do
   gem 'rails', '~> 6.0.0'
+  gem 'psych', '~> 3.3'
 
   group :test do
+    gem 'cancancan', ['~> 3.0', '< 3.6']
     gem 'pundit', '~> 2.1.0'
   end
 
@@ -16,7 +18,13 @@ appraise 'rails-6.0' do
   end
 
   group :mongoid do
+    gem 'cancancan-mongoid'
+    gem 'carrierwave-mongoid', '>= 0.6.3', require: 'carrierwave/mongoid'
+    gem 'database_cleaner-mongoid', '>= 2.0', require: false
+    gem 'kaminari-mongoid'
     gem 'mongoid', '~> 7.0'
+    gem 'mongoid-paperclip', '>= 0.0.8', require: 'mongoid_paperclip'
+    gem 'shrine-mongoid', '~> 1.0'
   end
 end
 
@@ -32,7 +40,13 @@ appraise 'rails-6.1' do
   end
 
   group :mongoid do
+    gem 'cancancan-mongoid'
+    gem 'carrierwave-mongoid', '>= 0.6.3', require: 'carrierwave/mongoid'
+    gem 'database_cleaner-mongoid', '>= 2.0', require: false
+    gem 'kaminari-mongoid'
     gem 'mongoid', '~> 7.0'
+    gem 'mongoid-paperclip', '>= 0.0.8', require: 'mongoid_paperclip'
+    gem 'shrine-mongoid', '~> 1.0'
   end
 end
 
@@ -49,7 +63,13 @@ appraise 'rails-7.0' do
   end
 
   group :mongoid do
+    gem 'cancancan-mongoid'
+    gem 'carrierwave-mongoid', '>= 0.6.3', require: 'carrierwave/mongoid'
+    gem 'database_cleaner-mongoid', '>= 2.0', require: false
+    gem 'kaminari-mongoid'
     gem 'mongoid', '~> 8.0'
+    gem 'mongoid-paperclip', '>= 0.0.8', require: 'mongoid_paperclip'
+    gem 'shrine-mongoid', '~> 1.0'
   end
 end
 
@@ -58,8 +78,19 @@ appraise 'rails-7.1' do
   gem 'importmap-rails', require: false
 
   group :mongoid do
+    gem 'cancancan-mongoid'
+    gem 'carrierwave-mongoid', '>= 0.6.3', require: 'carrierwave/mongoid'
+    gem 'database_cleaner-mongoid', '>= 2.0', require: false
+    gem 'kaminari-mongoid'
     gem 'mongoid', '~> 8.0'
+    gem 'mongoid-paperclip', '>= 0.0.8', require: 'mongoid_paperclip'
+    gem 'shrine-mongoid', '~> 1.0'
   end
+end
+
+appraise 'rails-7.2' do
+  gem 'rails', '~> 7.2.0'
+  gem 'importmap-rails', require: false
 end
 
 appraise 'composite_primary_keys' do

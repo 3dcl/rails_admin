@@ -68,6 +68,7 @@ RSpec.configure do |config|
   config.include Warden::Test::Helpers
 
   config.include Capybara::DSL, type: :request
+  config.include Capybara::RSpecMatchers, type: :request
 
   config.verbose_retry = true
   config.display_try_failure_messages = true
@@ -118,11 +119,11 @@ RSpec.configure do |config|
 
   CI_TARGET_ORMS.each do |orm|
     if orm == CI_ORM
-      config.filter_run_excluding "skip_#{orm}".to_sym => true
+      config.filter_run_excluding "skip_#{orm}": true
     else
       config.filter_run_excluding orm => true
     end
   end
 
-  config.filter_run_excluding composite_primary_keys: true unless defined?(CompositePrimaryKeys)
+  config.filter_run_excluding composite_primary_keys: true unless defined?(ActiveRecord) && ActiveRecord.gem_version >= Gem::Version.new('7.1') || defined?(CompositePrimaryKeys)
 end

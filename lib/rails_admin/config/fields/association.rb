@@ -13,7 +13,7 @@ module RailsAdmin
         end
 
         def method_name
-          association.key_accessor
+          nested_form ? :"#{name}_attributes" : association.key_accessor
         end
 
         register_instance_option :pretty_value do
@@ -134,6 +134,12 @@ module RailsAdmin
           bindings[:object].send(association.name)
         end
 
+        # Returns collection of all selectable records
+        def collection(scope = nil)
+          (scope || bindings[:controller].list_entries(associated_model_config, :index, associated_collection_scope, false)).
+            map { |o| [o.send(associated_object_label_method), format_key(o.send(associated_primary_key)).to_s] }
+        end
+
         # has many?
         def multiple?
           true
@@ -145,6 +151,16 @@ module RailsAdmin
 
         def associated_model_limit
           RailsAdmin.config.default_associated_collection_limit
+        end
+
+      private
+
+        def format_key(key)
+          if key.is_a?(Array)
+            RailsAdmin.config.composite_keys_serializer.serialize(key)
+          else
+            key
+          end
         end
       end
     end

@@ -31,6 +31,7 @@ module RailsAdmin
           Mongoid::Errors::InvalidFind
           Moped::Errors::InvalidObjectId
           BSON::InvalidObjectId
+          BSON::Error::InvalidObjectId
         ].exclude?(e.class.to_s)
       end
 
@@ -152,7 +153,7 @@ module RailsAdmin
         statements = []
 
         filters.each_pair do |field_name, filters_dump|
-          filters_dump.each do |_, filter_dump|
+          filters_dump.each_value do |filter_dump|
             field = fields.detect { |f| f.name.to_s == field_name }
             next unless field
 
